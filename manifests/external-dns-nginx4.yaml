@@ -1,0 +1,37 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-4  # Unique deployment name
+spec:
+  selector:
+    matchLabels:
+      app: nginx-4  # Unique label to avoid conflicts
+  template:
+    metadata:
+      labels:
+        app: nginx-4  # Match with the service selector
+    spec:
+      containers:
+        - image: mcr.microsoft.com/azurelinux/base/nginx:1.25
+          name: nginx
+          ports:
+          - containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc-4  # Unique service name
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+    external-dns.alpha.kubernetes.io/hostname: server4.example1.com
+    external-dns.alpha.kubernetes.io/internal-hostname: server-clusterip4.example1.com
+spec:
+  ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 80
+  selector:
+    app: nginx-4  # Ensure it selects the correct deployment
+  type: LoadBalancer

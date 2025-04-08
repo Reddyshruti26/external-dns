@@ -1,6 +1,9 @@
 module sigs.k8s.io/external-dns
 
-go 1.24.0
+go 1.23.2
+
+toolchain go1.23.3
+
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.17.1
