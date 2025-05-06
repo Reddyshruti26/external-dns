@@ -46,8 +46,12 @@ spec:
       serviceAccountName: external-dns
       containers:
         - name: external-dns
-          image:  extdnscr.azurecr.io/extdnsnofixapp:v50
+          image:  extdnscr.azurecr.io/extdnsnofixapp:v92  # 70, 80 worked. Latest 90,91 image worked for retry.
           env:
+            #- name: AZURE_CLIENT_MAX_RETRY_COUNT
+            #  value: "2"
+            - name: AZURE_SDK_MAX_RETRIES
+              value: "-1"
             - name: AZURE_SDK_GO_LOGGING
               value: "all"
             - name: AZURE_SDK_GO_LOGGING_LEVEL
@@ -60,7 +64,8 @@ spec:
             - --azure-resource-group=ExtDNSNoFix-RG # (optional) use the DNS zones from the tutorial's resource group
             - --azure-subscription-id=58768663-9606-45cf-a196-136d98585866
             - --log-level=debug
-            - --interval=60s
+            - --interval=1s
+          #  - --azure-retry-max=4
           volumeMounts:
             - name: azure-config-file
               mountPath: /etc/kubernetes

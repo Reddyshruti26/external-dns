@@ -20,9 +20,13 @@ package azure
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	azcoreruntime "github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	privatedns "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/privatedns/armprivatedns"
@@ -96,7 +100,7 @@ func NewAzurePrivateDNSProvider(configFile string, domainFilter endpoint.DomainF
 }
 
 // Added code for client-id:
-/* type ctxKey string
+type ctxKey string
 
 const (
 	clientRequestIDKey ctxKey = "client-request-id"
@@ -148,7 +152,7 @@ func (p *retryLogPolicy) Do(req *policy.Request) (*http.Response, error) {
 
 func CustomHeaderPolicynew() policy.Policy { return &customHeaderPolicy{} }
 func RetryMarkPolicynew() policy.Policy    { return &retryMarkPolicy{} }
-func RetryLogPolicynew() policy.Policy     { return &retryLogPolicy{} } */
+func RetryLogPolicynew() policy.Policy     { return &retryLogPolicy{} }
 
 //end of added code
 

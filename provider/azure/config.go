@@ -19,11 +19,20 @@ package azure
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
+	// adding new packges for the retry code to be be added here:
+	"context"
+	"net/http"
+
+	"github.com/google/uuid"
+
+	//ending changes
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -73,14 +82,88 @@ func getConfig(configFile, subscriptionID, resourceGroup, userAssignedIdentityCl
 	return cfg, nil
 }
 
+type ctxKey string
+
+const (
+	clientRequestIDKey ctxKey = "client-request-id"
+)
+
+// customHeaderPolicy adds UUID to request headers
+type customHeaderPolicy struct{}
+
+func (p *customHeaderPolicy) Do(req *policy.Request) (*http.Response, error) {
+	id := req.Raw().Header.Get("x-ms-client-request-id")
+	if id == "" {
+		id = uuid.New().String()
+		req.Raw().Header.Set("x-ms-client-request-id", id)
+		newCtx := context.WithValue(req.Raw().Context(), clientRequestIDKey, id)
+		*req.Raw() = *req.Raw().WithContext(newCtx)
+	}
+	return req.Next()
+}
+func CustomHeaderPolicynew() policy.Policy { return &customHeaderPolicy{} }
+
+// function to read env variable for max retries
+func GetMaxRetries() int {
+	maxRetries := 3
+	if val := os.Getenv("AZURE_SDK_MAX_RETRIES"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil {
+			maxRetries = parsed // Let SDK handle 0 or negative appropriately
+		} else {
+			log.Warnf("Invalid AZURE_SDK_MAX_RETRIES: %s, using default: %d", val, maxRetries)
+		}
+	}
+	log.Infof("Configured Azure SDK max retries: %d", maxRetries)
+	return maxRetries
+}
+
 // getCredentials retrieves Azure API credentials.
 func getCredentials(cfg config) (azcore.TokenCredential, *arm.ClientOptions, error) {
 	cloudCfg, err := getCloudConfiguration(cfg.Cloud)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get cloud configuration: %w", err)
 	}
+
+	/* maxRetries := 3 // default
+	if val := os.Getenv("AZURE_SDK_MAX_RETRIES"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil {
+			maxRetries = parsed
+		} else {
+			log.Warnf("Invalid AZURE_SDK_MAX_RETRIES value: %s, using default: %d", val, maxRetries)
+		}
+	}
+	log.Infof("Configured Azure SDK max retries: %d", maxRetries) */
+	/* clientOpts := azcore.ClientOptions{
+		Cloud: cloudCfg,
+		Logging: policy.LogOptions{
+			IncludeBody: true,
+			AllowedHeaders: []string{
+				"x-ms-request-id", "x-ms-correlation-request-id", "x-ms-client-request-id",
+			},
+			AllowedQueryParams: []string{"api-version", "resource"},
+		},
+		PerCallPolicies: []policy.Policy{
+			CustomHeaderPolicynew(),
+			RetryMarkPolicynew(), // 🆕
+		},
+		PerRetryPolicies: []policy.Policy{
+			RetryLogPolicynew(), // 🆕
+		},
+	} */
 	clientOpts := azcore.ClientOptions{
 		Cloud: cloudCfg,
+		Retry: policy.RetryOptions{
+			MaxRetries: int32(GetMaxRetries()),
+		},
+		Logging: policy.LogOptions{
+			IncludeBody: true,
+			AllowedHeaders: []string{
+				"x-ms-request-id", "x-ms-correlation-request-id", "x-ms-client-request-id",
+			},
+		},
+		PerCallPolicies: []policy.Policy{
+			CustomHeaderPolicynew(),
+		},
 	}
 	armClientOpts := &arm.ClientOptions{
 		ClientOptions: clientOpts,
